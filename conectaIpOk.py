@@ -8,16 +8,10 @@ import pyautogui
 excel_file_path = r'C:\24 - RPA\Atualizacao_PDV_Py\Banco\IPs_PDVs.xlsx'
 
 # Constante - Caminho da imagem do botão de conexão
-imagem_path = r'C:\24 - RPA\Atualizacao_PDV_Py\Banco\botao_conexao.png'
+imagem_path = r'C:\24 - RPA\Atualizacao_PDV_Py\Banco\botao_conexao.PNG'
 imagem_envio = r'C:\24 - RPA\Atualizacao_PDV_Py\Banco\botao_completo.PNG'
 
 def conectaIP(excel_file_path):
-    # Abra o programa Tz0Console.exe
-    program_path = r'C:\Program Files (x86)\Trauma Zer0\Tz0\ModulesApp\Tz0Console.exe'
-    process = subprocess.Popen(program_path)
-
-    # Aguarde o programa carregar
-    time.sleep(20)
 
     # Ler o arquivo Excel
     df = pd.read_excel(excel_file_path)
@@ -30,6 +24,14 @@ def conectaIP(excel_file_path):
 
     # Loop através dos IPs com "Ping OK"
     for ip_to_connect in ips_ping_ok:
+        time.sleep(3)
+        # Abra o programa Tz0Console.exe para cada IP
+        program_path = r'C:\Program Files (x86)\Trauma Zer0\Tz0\ModulesApp\Tz0Console.exe'
+        process = subprocess.Popen(program_path)
+
+        # Aguarde o programa carregar
+        time.sleep(20)
+        
         # Encontre o código e a localização correspondentes ao IP
         ip_info = df[df['IP'] == ip_to_connect]
 
@@ -60,7 +62,7 @@ def conectaIP(excel_file_path):
             enviaArquivo()
 
             # Aguarda a detecção da imagem de envio antes de prosseguir
-            resultado_envio = aguardaEnvio(imagem_envio, df)
+            resultado_envio = aguardaEnvio(imagem_envio)
 
             if resultado_envio == "Enviado":
                 # A imagem foi detectada, então prossegue com o envio do arquivo
@@ -71,18 +73,20 @@ def conectaIP(excel_file_path):
                 process.terminate()
             else:
                 # Outro cenário de falha
-                print("Falha no envio. Consulte o resultado_envio para mais informações.")
+                print("Enviado")
                 process.terminate()
         else:
             print(f"IP {ip_to_connect} não encontrado no arquivo.")
     else:
         print("Nenhum IP com 'Ping OK' encontrado no arquivo.")
+            # Verifica se todos os IPs foram processados, então termina o loop
 
-def aguardaEnvio(imagem_envio, df):
+def aguardaEnvio(imagem_envio):
     tentativa_atual = 0
-    tempo_limite = 60  # Tempo limite em segundos
+    tempo_limite = 40  # Tempo limite total em segundos
+    intervalo_tentativa = 2  # Intervalo entre tentativas em segundos
 
-    while tentativa_atual < tempo_limite / 2:  # Dividido por 2 porque você está esperando 2 segundos em cada iteração
+    while tentativa_atual * intervalo_tentativa < tempo_limite:
         posicaoenvio = pyautogui.locateOnScreen(imagem_envio)
 
         if posicaoenvio is not None:
@@ -91,11 +95,15 @@ def aguardaEnvio(imagem_envio, df):
         else:
             resultadoenvio = "Aguardando envio"
             tentativa_atual += 1
-            time.sleep(2)  # Aguarde por 2 segundos antes da próxima tentativa
+            time.sleep(intervalo_tentativa)  # Aguarde pelo intervalo antes da próxima tentativa
 
     if resultadoenvio != "Enviado":
         # Se o resultado não for "Enviado" após o tempo limite, imprima um aviso
         print("Arquivo não enviado em tempo hábil")
+
+    
+    # Ler o arquivo Excel
+    df = pd.read_excel(excel_file_path)
 
     # Adicione a nova coluna "StatusEnvio" ao DataFrame com o resultado
     df['StatusEnvio'] = resultadoenvio
@@ -105,32 +113,34 @@ def aguardaEnvio(imagem_envio, df):
 
     print({resultadoenvio})
 
-    return resultadoenvio
-
     
 def verificarBotao(excel_file_path, imagem_path):
     try:
-        # Tente localizar a imagem na tela
-        posicao = pyautogui.locateOnScreen(imagem_path)
+        x_esquerda, y_superior = 0, 633
+        largura, altura = 175, 94
+        area_busca = (x_esquerda, y_superior, largura, altura)
 
-        # Verifique se a imagem (botão de conexão) foi encontrada
+        # Capture a tela na área específica
+        tela = pyautogui.screenshot(region=area_busca)
+
+        # Tente localizar a imagem de referência na tela capturada
+        posicao = pyautogui.locateOnScreen(imagem_path, region=area_busca)
+
+        # Verifique se a posição da imagem foi encontrada
         if posicao is not None:
             resultado = "Conectado"
-            # Carregue o arquivo Excel em um DataFrame
-            df = pd.read_excel(excel_file_path)
-            # Adicione a nova coluna "Conexão" ao DataFrame com o resultado
-            df['Conexão'] = resultado
-            # Salve o DataFrame atualizado de volta no arquivo Excel
-            df.to_excel(excel_file_path, index=False, engine='openpyxl')
         else:
             resultado = "Falha conexão"
-            # Carregue o arquivo Excel em um DataFrame
-            df = pd.read_excel(excel_file_path)
-            # Adicione a nova coluna "Conexão" ao DataFrame com o resultado
-            df['Conexão'] = resultado
-            # Salve o DataFrame atualizado de volta no arquivo Excel
-            df.to_excel(excel_file_path, index=False, engine='openpyxl')
             pass
+
+        # Carregue o arquivo Excel em um DataFrame
+        df = pd.read_excel(excel_file_path)
+
+        # Adicione a nova coluna "Conexão" ao DataFrame com o resultado
+        df['Conexão'] = resultado
+
+        # Salve o DataFrame atualizado de volta no arquivo Excel
+        df.to_excel(excel_file_path, index=False, engine='openpyxl')
 
         print(f'Botão desconectar verificado, {resultado}')
         return resultado  # Retorna o resultado da verificação
@@ -138,6 +148,7 @@ def verificarBotao(excel_file_path, imagem_path):
     except Exception as e:
         print(f"Ocorreu um erro: {str(e)}")
         return "Erro"  # Retorna "Erro" em caso de exceção
+
 
 def enviaArquivo():
     # Verificar a conexão e atribuir o resultado a resultado_conexao
