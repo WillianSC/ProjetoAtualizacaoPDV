@@ -12,13 +12,6 @@ imagem_path = r'C:\24 - RPA\Atualizacao_PDV_Py\Banco\botao_conexao.png'
 imagem_envio = r'C:\24 - RPA\Atualizacao_PDV_Py\Banco\botao_completo.PNG'
 
 def conectaIP(excel_file_path):
-    # Abra o programa Tz0Console.exe
-    program_path = r'C:\Program Files (x86)\Trauma Zer0\Tz0\ModulesApp\Tz0Console.exe'
-    process = subprocess.Popen(program_path)
-
-    # Aguarde o programa carregar
-    time.sleep(20)
-
     # Ler o arquivo Excel
     df = pd.read_excel(excel_file_path)
 
@@ -39,6 +32,16 @@ def conectaIP(excel_file_path):
 
             print(f'Conectando ao IP {ip_to_connect} (Código: {codigo}, Localização: {localizacao})')
 
+            # Abra o programa Tz0Console.exe
+            program_path = r'C:\Program Files (x86)\Trauma Zer0\Tz0\ModulesApp\Tz0Console.exe'
+            process = subprocess.Popen(program_path)
+
+            # Aguarde o programa carregar
+            time.sleep(20)
+
+            # Usar o pygetwindow para encontrar a janela do Tz0Console
+            tz0_console_window = gw.getWindowsWithTitle('Tz0 Console')[0]
+
             # Clica dentro do campo de IP do Tz0
             pyautogui.click(x=214, y=189, clicks = 2)
             pyautogui.hotkey('ctrl', 'a')
@@ -54,8 +57,6 @@ def conectaIP(excel_file_path):
             pyautogui.moveTo(x=629, y=192)
             pyautogui.click(x=629, y=192)
             time.sleep(5)
-            
-            verificarBotao(excel_file_path, imagem_path)
 
             enviaArquivo()
 
@@ -67,7 +68,7 @@ def conectaIP(excel_file_path):
                 process.terminate()
             elif resultado_envio == "Aguardando envio":
                 # A imagem não foi detectada mesmo após a espera, trata como uma falha
-                print("Falha no envio. Imagem de ENVIO não detectada após o tempo de espera.")
+                print("Falha no envio. Imagem não detectada após o tempo de espera.")
                 process.terminate()
             else:
                 # Outro cenário de falha
@@ -79,34 +80,40 @@ def conectaIP(excel_file_path):
         print("Nenhum IP com 'Ping OK' encontrado no arquivo.")
 
 def aguardaEnvio(imagem_envio, df):
+    max_tentativas = 10  # Número máximo de tentativas
     tentativa_atual = 0
-    tempo_limite = 60  # Tempo limite em segundos
 
-    while tentativa_atual < tempo_limite / 2:  # Dividido por 2 porque você está esperando 2 segundos em cada iteração
-        posicaoenvio = pyautogui.locateOnScreen(imagem_envio)
+    try:
+        while tentativa_atual < max_tentativas:
+            # Tente localizar a imagem na tela
+            posicaoenvio = pyautogui.locateOnScreen(imagem_envio)
 
-        if posicaoenvio is not None:
-            resultadoenvio = "Enviado"
-            break  # Saia do loop se a imagem for encontrada
-        else:
-            resultadoenvio = "Aguardando envio"
-            tentativa_atual += 1
-            time.sleep(2)  # Aguarde por 2 segundos antes da próxima tentativa
+            # Verifique se a imagem (botão de envio) foi encontrada
+            if posicaoenvio is not None:
+                resultadoenvio = "Enviado"
+                break  # Saia do loop se a imagem for encontrada
+            else:
+                resultadoenvio = "Aguardando envio"
+                tentativa_atual += 1
+                time.sleep(1)  # Aguarde por 3 segundos antes da próxima tentativa
 
-    if resultadoenvio != "Enviado":
-        # Se o resultado não for "Enviado" após o tempo limite, imprima um aviso
-        print("Arquivo não enviado em tempo hábil")
+        # Se a imagem não for encontrada após o número máximo de tentativas
+        if tentativa_atual == max_tentativas:
+            resultadoenvio = "Falha envio"
 
-    # Adicione a nova coluna "StatusEnvio" ao DataFrame com o resultado
-    df['StatusEnvio'] = resultadoenvio
+            # Adicione a nova coluna "Conexão" ao DataFrame com o resultado
+            df['StatusEnvio'] = resultadoenvio
 
-    # Salve o DataFrame atualizado de volta no arquivo Excel
-    df.to_excel(excel_file_path, index=False, engine='openpyxl')
+            # Salve o DataFrame atualizado de volta no arquivo Excel
+            df.to_excel(excel_file_path, index=False, engine='openpyxl')
 
-    print({resultadoenvio})
+            print(f'Teste realizado, {resultadoenvio}')
 
-    return resultadoenvio
+        return resultadoenvio
 
+    except Exception as e:
+        print(f"Ocorreu um erro: {str(e)}")
+        return "Erro"  # Retorna "Erro" em caso de exceção
     
 def verificarBotao(excel_file_path, imagem_path):
     try:
@@ -116,24 +123,22 @@ def verificarBotao(excel_file_path, imagem_path):
         # Verifique se a imagem (botão de conexão) foi encontrada
         if posicao is not None:
             resultado = "Conectado"
-            # Carregue o arquivo Excel em um DataFrame
-            df = pd.read_excel(excel_file_path)
-            # Adicione a nova coluna "Conexão" ao DataFrame com o resultado
-            df['Conexão'] = resultado
-            # Salve o DataFrame atualizado de volta no arquivo Excel
-            df.to_excel(excel_file_path, index=False, engine='openpyxl')
         else:
             resultado = "Falha conexão"
-            # Carregue o arquivo Excel em um DataFrame
-            df = pd.read_excel(excel_file_path)
-            # Adicione a nova coluna "Conexão" ao DataFrame com o resultado
-            df['Conexão'] = resultado
-            # Salve o DataFrame atualizado de volta no arquivo Excel
-            df.to_excel(excel_file_path, index=False, engine='openpyxl')
-            pass
+
+        # Carregue o arquivo Excel em um DataFrame
+        df = pd.read_excel(excel_file_path)
+
+        # Adicione a nova coluna "Conexão" ao DataFrame com o resultado
+        df['Conexão'] = resultado
+
+        # Salve o DataFrame atualizado de volta no arquivo Excel
+        df.to_excel(excel_file_path, index=False, engine='openpyxl')
 
         print(f'Botão desconectar verificado, {resultado}')
+
         return resultado  # Retorna o resultado da verificação
+    
 
     except Exception as e:
         print(f"Ocorreu um erro: {str(e)}")
