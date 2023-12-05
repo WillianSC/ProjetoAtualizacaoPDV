@@ -34,7 +34,7 @@ def consultar_e_salvar_em_excel(connection, connection_string):
         SELECT L.CODIGO, L.DESCRICAO, C.LOCALIZACAO, C.IP
         FROM lojas L
         JOIN [VM_DataBSP].[dbo].[COMPONENTES] C ON L.CODIGO = C.LOJA
-        WHERE L.CODIGO = 5137
+        WHERE L.CODIGO > 5000
         AND C.IP <> ''
         AND C.TIPO <> 'D'
         """
